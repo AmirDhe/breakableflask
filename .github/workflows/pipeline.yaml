@@ -12,7 +12,7 @@ jobs:
 
       - name: Vérifier que requirements.txt existe
         run: |
-          if [ ! -f ".github/workflows/requirements.txt" ]; then
+          if [ ! -f "requirements.txt" ]; then
             echo "❌ ERREUR : requirements.txt est manquant !"
             exit 1
           fi
@@ -40,7 +40,7 @@ jobs:
 
       - name: Vérifier que le Dockerfile existe
         run: |
-          if [ ! -f ".github/workflows/Dockerfile" ]; then
+          if [ ! -f "Dockerfile" ]; then
             echo "❌ ERREUR : Dockerfile manquant !"
             exit 1
           fi
@@ -48,7 +48,7 @@ jobs:
 
       - name: Tester la build Docker
         run: |
-          docker build -t monapp:test .github/workflows/D
+          docker build -t monapp:test .
           echo "✔ Dockerfile build OK."
 
       - name: Analyse Dockerfile avec Hadolint

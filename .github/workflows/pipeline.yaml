@@ -1,65 +1,84 @@
-name: Automatisation des tests DevSecOps
+name: CI Pipeline
 
-on: push
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 jobs:
-
   Dependances:
+    name: Vérification et installation des dépendances
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout du repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Vérifier que requirements.txt existe
         run: |
           if [ ! -f "requirements.txt" ]; then
-            echo "❌ ERREUR : requirements.txt est manquant !"
+            echo "requirements.txt manquant !"
             exit 1
           fi
-          echo "✔ requirements.txt trouvé."
+          echo "✓ requirements.txt trouvé"
 
       - name: Vérifier que requirements.txt n'est pas vide
         run: |
           if [ ! -s "requirements.txt" ]; then
-            echo "❌ ERREUR : requirements.txt est vide !"
+            echo "requirements.txt est vide !"
             exit 1
           fi
-          echo "✔ requirements.txt contient des dépendances."
+          echo "✓ requirements.txt non vide"
 
-      - name: Installer les dépendances pour vérification
+      - name: Tester l'installation des dépendances
         run: |
           pip install -r requirements.txt
-          echo "✔ Dépendances installées sans erreurs."
+          echo "✓ Dépendances installables"
 
   Dockerfile:
+    name: Vérification et construction Docker
     runs-on: ubuntu-latest
     needs: Dependances
     steps:
-      - name: Checkout du repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Vérifier que le Dockerfile existe
+      - name: Vérifier que Dockerfile existe
         run: |
           if [ ! -f "Dockerfile" ]; then
-            echo "❌ ERREUR : Dockerfile manquant !"
+            echo "Dockerfile manquant !"
             exit 1
           fi
-          echo "✔ Dockerfile trouvé."
+          echo "✓ Dockerfile trouvé"
 
-      - name: Tester la build Docker
+      - name: Tester la construction Docker
         run: |
-          docker build -t monapp:test .
-          echo "✔ Dockerfile build OK."
+          docker build -t imgvulne:1.1 .
+          echo "✓ Dockerfile OK — image Docker construite"
 
-      - name: Analyse Dockerfile avec Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-
-  Deploy:
+  Vulnerabilities:
+    name: Scan des vulnérabilités
     runs-on: ubuntu-latest
     needs: Dockerfile
     steps:
-      - name: Deploy
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Scanner les vulnérabilités des dépendances Python
         run: |
-          echo "✔ Toutes les étapes sont validées. L'application est prête à être déployée."
+          docker run --rm \
+            -v "$PWD":/project \
+            -v $HOME/.cache/trivy:/root/.cache/ \
+            aquasec/trivy:latest fs /project/requirements.txt
+
+      - name: Scanner les vulnérabilités de l'image Docker
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy":/root/.cache/ \
+            aquasec/trivy:latest image --format json --severity HIGH,CRITICAL imgvulne:1.1 \
+          | jq -r '
+            ["TARGET","PACKAGE","INSTALLED","VULN","SEVERITY"],
+            (.Results[]? as $r | $r.Vulnerabilities[]? | [$r.Target, .PkgName, .InstalledVersion, .VulnerabilityID, .Severity]) 
+            | @tsv' \
+          | column -t -s $'\t'

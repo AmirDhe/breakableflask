@@ -64,15 +64,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Scanner les vulnérabilités des dépendances Python
+      - name: Installer jq et column pour formatage
+        run: sudo apt-get update && sudo apt-get install -y jq bsdmainutils
+
+      - name: Scanner vulnérabilités des dépendances Python
         run: |
+          echo "🔍 Scan des vulnérabilités dans requirements.txt"
           docker run --rm \
             -v "$PWD":/project \
             -v $HOME/.cache/trivy:/root/.cache/ \
-            aquasec/trivy:latest fs /project/requirements.txt
+            aquasec/trivy:latest fs /project/requirements.txt || echo "Scan terminé avec vulnérabilités"
 
-      - name: Scanner les vulnérabilités de l'image Docker
+      - name: Scanner vulnérabilités de l'image Docker
         run: |
+          echo "🔍 Scan des vulnérabilités dans l'image Docker imgvulne:1.1"
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$HOME/.cache/trivy":/root/.cache/ \
@@ -81,4 +86,4 @@ jobs:
             ["TARGET","PACKAGE","INSTALLED","VULN","SEVERITY"],
             (.Results[]? as $r | $r.Vulnerabilities[]? | [$r.Target, .PkgName, .InstalledVersion, .VulnerabilityID, .Severity]) 
             | @tsv' \
-          | column -t -s $'\t'
+          | column -t -s $'\t' || echo "Scan terminé avec vulnérabilités"

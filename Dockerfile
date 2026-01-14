@@ -1,4 +1,4 @@
-FROM python:3.7
+FROM python:3.9
 WORKDIR /app
 # Installe tout en root, conserve cache apt/pip
 RUN apt-get update && apt-get install -y \

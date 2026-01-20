@@ -9,7 +9,8 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Scan des dépendances avec Trivy (requirements.txt)
+      - name: Scan des dépendances avec Trivy (Creation du rapport)
+        # On écrit le résultat dans 'rapport-dependances.txt'
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
@@ -17,8 +18,18 @@ jobs:
             aquasec/trivy:latest fs \
               --security-checks vuln \
               --severity HIGH,CRITICAL \
+              --format table \
+              --output /workspace/rapport-dependances.txt \
               --exit-code 1 \
               /workspace
+
+      - name: Upload du rapport Dependances
+        # Cette étape s'exécute TOUJOURS, même si le scan a trouvé des failles (échec)
+        if: always() 
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-dependances
+          path: rapport-dependances.txt
 
   Dockerfile:
     runs-on: ubuntu-latest
@@ -27,15 +38,25 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Scan du Dockerfile avec Trivy
+      - name: Scan du Dockerfile avec Trivy (Creation du rapport)
+        # On écrit le résultat dans 'rapport-dockerfile.txt'
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -v $HOME/.cache/trivy:/root/.cache/ \
             aquasec/trivy:latest config \
               --severity HIGH,CRITICAL \
+              --format table \
+              --output /workspace/rapport-dockerfile.txt \
               --exit-code 1 \
               /workspace
+
+      - name: Upload du rapport Dockerfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-dockerfile
+          path: rapport-dockerfile.txt
 
   Deploy:
     runs-on: ubuntu-latest

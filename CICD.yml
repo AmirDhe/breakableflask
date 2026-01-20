@@ -3,14 +3,15 @@ name: Automatisation des tests DevSecOps
 on: push
 
 jobs:
+  # ÉTAPE 1 : Dépendances
   Dependances:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Scan des dépendances avec Trivy (Creation du rapport)
-        # On écrit le résultat dans 'rapport-dependances.txt'
+      # Création du fichier rapport-dependances.txt
+      - name: Scan des dépendances avec Trivy
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
@@ -23,23 +24,24 @@ jobs:
               --exit-code 1 \
               /workspace
 
+      # Upload de l'artefact pour qu'il apparaisse en bas de la page
       - name: Upload du rapport Dependances
-        # Cette étape s'exécute TOUJOURS, même si le scan a trouvé des failles (échec)
-        if: always() 
+        if: always() # Important : sauvegarde même si le scan échoue
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-dependances
+          name: rapport-dependances  # Nom exact visible sur votre capture
           path: rapport-dependances.txt
 
+  # ÉTAPE 2 : Dockerfile (Dépend de l'étape 1)
   Dockerfile:
     runs-on: ubuntu-latest
-    needs: Dependances
+    needs: Dependances  # C'est cette ligne qui crée le trait de liaison visuel !
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Scan du Dockerfile avec Trivy (Creation du rapport)
-        # On écrit le résultat dans 'rapport-dockerfile.txt'
+      # Création du fichier rapport-docker.txt
+      - name: Scan du Dockerfile avec Trivy
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
@@ -47,21 +49,24 @@ jobs:
             aquasec/trivy:latest config \
               --severity HIGH,CRITICAL \
               --format table \
-              --output /workspace/rapport-dockerfile.txt \
+              --output /workspace/rapport-docker.txt \
               --exit-code 1 \
               /workspace
 
-      - name: Upload du rapport Dockerfile
+      # Upload de l'artefact
+      - name: Upload du rapport Docker
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-dockerfile
-          path: rapport-dockerfile.txt
+          name: rapport-docker # Nom exact visible sur votre capture
+          path: rapport-docker.txt
 
+  # ÉTAPE 3 : Deploy (Dépend de l'étape 2)
   Deploy:
     runs-on: ubuntu-latest
-    needs: Dockerfile
+    needs: Dockerfile # C'est cette ligne qui crée le second trait de liaison
     steps:
       - name: Deploy
         run: |
-          echo "Rien à faire ici. Votre application est prête à être déployée"
+          echo "Tout est bon. Déploiement en cours..."
+
